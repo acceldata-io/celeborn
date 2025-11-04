@@ -42,7 +42,7 @@ object Dependencies {
   val lz4JavaVersion = sparkClientProjects.map(_.lz4JavaVersion).getOrElse("1.10.4")
 
   // Dependent library versions
-  val apLoaderVersion = "3.0-9"
+  val apLoaderVersion = "4.0-10"
   val commonsCompressVersion = "1.4.1"
   val commonsCryptoVersion = "1.0.0"
   val commonsIoVersion = "2.17.0"
@@ -272,6 +272,8 @@ object Dependencies {
     ExclusionRule("org.apache.httpcomponents", "httpclient"),
     ExclusionRule("org.slf4j", "slf4j-log4j12")
   )
+  val hadoopAuth = "org.apache.hadoop" % "hadoop-auth" % hadoopVersion
+  val hadoopHdfs = "org.apache.hadoop" % "hadoop-hdfs" % hadoopVersion
 
   val picocli = "info.picocli" % "picocli" % picocliVersion
 
@@ -507,6 +509,7 @@ object Utils {
     case Some("flink-1.19") => Some(Flink119)
     case Some("flink-1.20") => Some(Flink120)
     case Some("flink-2.0") => Some(Flink20)
+    case Some("flink-2.1") => Some(Flink21)
     case _ => None
   }
 
@@ -932,7 +935,7 @@ object Spark40 extends SparkClientProjects {
   val lz4JavaVersion = "1.8.0"
   val sparkProjectScalaVersion = "2.13.16"
 
-  val sparkVersion = "4.0.0"
+  val sparkVersion = "4.0.1"
   val zstdJniVersion = "1.5.6-9"
   val scalaBinaryVersion = "2.13"
 
@@ -1204,13 +1207,23 @@ object Flink120 extends FlinkClientProjects {
 }
 
 object Flink20 extends FlinkClientProjects {
-  val flinkVersion = "2.0.0"
+  val flinkVersion = "2.0.1"
 
   // note that SBT does not allow using the period symbol (.) in project names.
   val flinkClientProjectPath = "client-flink/flink-2.0"
   val flinkClientProjectName = "celeborn-client-flink-2_0"
   val flinkClientShadedProjectPath: String = "client-flink/flink-2.0-shaded"
   val flinkClientShadedProjectName: String = "celeborn-client-flink-2_0-shaded"
+}
+
+object Flink21 extends FlinkClientProjects {
+  val flinkVersion = "2.1.1"
+
+  // note that SBT does not allow using the period symbol (.) in project names.
+  val flinkClientProjectPath = "client-flink/flink-2.1"
+  val flinkClientProjectName = "celeborn-client-flink-2_1"
+  val flinkClientShadedProjectPath: String = "client-flink/flink-2.1-shaded"
+  val flinkClientShadedProjectName: String = "celeborn-client-flink-2_1-shaded"
 }
 
 trait FlinkClientProjects {
@@ -1234,6 +1247,8 @@ trait FlinkClientProjects {
     .aggregate(flinkCommon, flinkClient, flinkIt)
 
   // get flink major version. e.g:
+  //   2.0.1 -> 2.0
+  //   2.1.1 -> 2.1
   //   1.20.3 -> 1.20
   //   1.19.3 -> 1.19
   //   1.18.1 -> 1.18
@@ -1289,7 +1304,11 @@ trait FlinkClientProjects {
           "org.apache.flink" % "flink-runtime" % flinkVersion % "test",
           flinkStreamingDependency,
           flinkClientsDependency,
-          flinkRuntimeWebDependency
+          flinkRuntimeWebDependency,
+          Dependencies.hadoopCommon % "test",
+          Dependencies.hadoopAuth % "test",
+          Dependencies.hadoopHdfs % "test->test;compile->compile",
+          Dependencies.jerseyServer % "test",
         ) ++ commonUnitTestDependencies,
         (Test / envVars) += ("FLINK_VERSION", flinkVersion)
       )
