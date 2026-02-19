@@ -74,11 +74,21 @@ while (( "$#" )); do
 done
 
 if [ "$RELEASE" == "true" ]; then
-  JAVA8_HOME=${JAVA8_HOME:?"JAVA8_HOME is required"}
-  JAVA11_HOME=${JAVA11_HOME:?"JAVA11_HOME is required"}
-  JAVA17_HOME=${JAVA17_HOME:?"JAVA17_HOME is required"}
-  # Set JAVA_HOME to JDK 8 by default for release
-  export JAVA_HOME=$JAVA8_HOME
+  # Check if specific profiles are provided
+  HAS_SPECIFIC_PROFILES=false
+  if [[ $@ == *"-Pspark"* ]] || [[ $@ == *"-Pflink"* ]] || [[ $@ == *"-Pmr"* ]] || [[ $@ == *"-Ptez"* ]]; then
+    HAS_SPECIFIC_PROFILES=true
+  fi
+
+  if [ "$HAS_SPECIFIC_PROFILES" == "false" ]; then
+    # Full release build - require all Java versions
+    JAVA8_HOME=${JAVA8_HOME:?"JAVA8_HOME is required"}
+    JAVA11_HOME=${JAVA11_HOME:?"JAVA11_HOME is required"}
+    JAVA17_HOME=${JAVA17_HOME:?"JAVA17_HOME is required"}
+    # Set JAVA_HOME to JDK 8 by default for release
+    export JAVA_HOME=$JAVA8_HOME
+  fi
+  # If specific profiles are provided, just use current JAVA_HOME
 fi
 
 if [ -z "$JAVA_HOME" ]; then
@@ -212,7 +222,7 @@ function build_spark_client {
 }
 
 function build_flink_client {
-  FLINK_VERSION=$("$MVN" help:evaluate -Dexpression=flink.version $@ 2>/dev/null \
+  VERSION=$("$MVN" help:evaluate -Dexpression=project.version $@ 2>/dev/null \
       | grep -v "INFO" \
       | grep -v "WARNING" \
       | tail -n 1)
@@ -220,7 +230,8 @@ function build_flink_client {
       | grep -v "INFO" \
       | grep -v "WARNING" \
       | tail -n 1)
-  FLINK_BINARY_VERSION=${FLINK_VERSION%.*}
+  # Extract Flink binary version from profile argument (e.g., -Pflink-1.19 -> 1.19)
+  FLINK_BINARY_VERSION=$(echo "$@" | grep -oE '\-Pflink-[0-9]+\.[0-9]+' | sed 's/-Pflink-//')
 
   # Store the command as an array because $MVN variable might have spaces in it.
   # Normal quoting tricks don't work.
@@ -391,23 +402,80 @@ if [ "$SBT_ENABLED" == "true" ]; then
 else
   if [ "$RELEASE" == "true" ]; then
     build_service
-    export JAVA_HOME=$JAVA8_HOME
-    build_spark_client -Pspark-2.4
-    build_spark_client -Pspark-3.4
-    build_spark_client -Pspark-3.5
-    export JAVA_HOME=$JAVA17_HOME
-    build_spark_client -Pspark-4.0
-    export JAVA_HOME=$JAVA8_HOME
-    build_flink_client -Pflink-1.16
-    build_flink_client -Pflink-1.17
-    build_flink_client -Pflink-1.18
-    build_flink_client -Pflink-1.19
-    build_flink_client -Pflink-1.20
-    export JAVA_HOME=$JAVA11_HOME
-    build_flink_client -Pflink-2.0
-    export JAVA_HOME=$JAVA8_HOME
-    build_mr_client -Pmr
-    build_tez_client -Ptez
+    
+    # Check if specific profiles are provided
+    HAS_SPECIFIC_PROFILES=false
+    if [[ $@ == *"-Pspark"* ]] || [[ $@ == *"-Pflink"* ]] || [[ $@ == *"-Pmr"* ]] || [[ $@ == *"-Ptez"* ]]; then
+      HAS_SPECIFIC_PROFILES=true
+    fi
+
+    if [ "$HAS_SPECIFIC_PROFILES" == "true" ]; then
+      # Build only specified profiles using current JAVA_HOME
+      echo "Building clients for specified profiles: $@"
+      
+      # Build Spark clients if specified
+      if [[ $@ == *"-Pspark-2.4"* ]]; then
+        build_spark_client -Pspark-2.4
+      fi
+      if [[ $@ == *"-Pspark-3.4"* ]]; then
+        build_spark_client -Pspark-3.4
+      fi
+      if [[ $@ == *"-Pspark-3.5"* ]]; then
+        build_spark_client -Pspark-3.5
+      fi
+      if [[ $@ == *"-Pspark-4.0"* ]]; then
+        build_spark_client -Pspark-4.0
+      fi
+      
+      # Build Flink clients if specified
+      if [[ $@ == *"-Pflink-1.16"* ]]; then
+        build_flink_client -Pflink-1.16
+      fi
+      if [[ $@ == *"-Pflink-1.17"* ]]; then
+        build_flink_client -Pflink-1.17
+      fi
+      if [[ $@ == *"-Pflink-1.18"* ]]; then
+        build_flink_client -Pflink-1.18
+      fi
+      if [[ $@ == *"-Pflink-1.19"* ]]; then
+        build_flink_client -Pflink-1.19
+      fi
+      if [[ $@ == *"-Pflink-1.20"* ]]; then
+        build_flink_client -Pflink-1.20
+      fi
+      if [[ $@ == *"-Pflink-2.0"* ]]; then
+        build_flink_client -Pflink-2.0
+      fi
+      
+      # Build MR client if specified
+      if [[ $@ == *"-Pmr"* ]]; then
+        build_mr_client -Pmr
+      fi
+      
+      # Build Tez client if specified
+      if [[ $@ == *"-Ptez"* ]]; then
+        build_tez_client -Ptez
+      fi
+    else
+      # Build all clients (original behavior)
+      export JAVA_HOME=$JAVA8_HOME
+      build_spark_client -Pspark-2.4
+      build_spark_client -Pspark-3.4
+      build_spark_client -Pspark-3.5
+      export JAVA_HOME=$JAVA17_HOME
+      build_spark_client -Pspark-4.0
+      export JAVA_HOME=$JAVA8_HOME
+      build_flink_client -Pflink-1.16
+      build_flink_client -Pflink-1.17
+      build_flink_client -Pflink-1.18
+      build_flink_client -Pflink-1.19
+      build_flink_client -Pflink-1.20
+      export JAVA_HOME=$JAVA11_HOME
+      build_flink_client -Pflink-2.0
+      export JAVA_HOME=$JAVA8_HOME
+      build_mr_client -Pmr
+      build_tez_client -Ptez
+    fi
   else
     ## build release package on demand
     build_service $@
