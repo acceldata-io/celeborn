@@ -204,7 +204,7 @@ function build_spark_client {
 }
 
 function build_flink_client {
-  FLINK_VERSION=$("$MVN" help:evaluate -Dexpression=flink.version $@ 2>/dev/null \
+  VERSION=$("$MVN" help:evaluate -Dexpression=project.version $@ 2>/dev/null \
       | grep -v "INFO" \
       | grep -v "WARNING" \
       | tail -n 1)
@@ -212,7 +212,8 @@ function build_flink_client {
       | grep -v "INFO" \
       | grep -v "WARNING" \
       | tail -n 1)
-  FLINK_BINARY_VERSION=${FLINK_VERSION%.*}
+  # Extract Flink binary version from profile argument (e.g., -Pflink-1.19 -> 1.19)
+  FLINK_BINARY_VERSION=$(echo "$@" | grep -oE '\-Pflink-[0-9]+\.[0-9]+' | sed 's/-Pflink-//')
 
   # Store the command as an array because $MVN variable might have spaces in it.
   # Normal quoting tricks don't work.
