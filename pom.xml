@@ -43,14 +43,14 @@
 
   <distributionManagement>
     <repository>
-      <id>${distMgmtReleaseId}</id>
-      <name>${distMgmtReleaseName}</name>
-      <url>${distMgmtReleaseUrl}</url>
+      <id>nexus-releases</id>
+      <name>Releases</name>
+      <url>https://repo1.acceldata.dev/repository/odp-staging-release/</url>
     </repository>
     <snapshotRepository>
-      <id>${distMgmtSnapshotsId}</id>
-      <name>${distMgmtSnapshotsName}</name>
-      <url>${distMgmtSnapshotsUrl}</url>
+      <id>nexus-snapshots</id>
+      <name>Snapshot</name>
+      <url>https://repo1.acceldata.dev/repository/odp-staging-snapshot/</url>
     </snapshotRepository>
   </distributionManagement>
 
@@ -813,16 +813,22 @@
         <enabled>true</enabled>
       </releases>
       <snapshots>
-        <enabled>false</enabled>
+        <enabled>true</enabled>
       </snapshots>
-      <id>${mavenCentralId}</id>
-      <name>${mavenCentralName}</name>
-      <url>${mavenCentralUrl}</url>
+      <id>acceldata staging repo</id>
+      <name>acceldata staging repo</name>
+      <url>https://repo1.acceldata.dev/repository/odp-staging-central/</url>
     </repository>
     <repository>
-      <id>apache-release-candidates</id>
-      <name>Apache Release Candidates Repository</name>
-      <url>https://repository.apache.org/content/repositories/staging</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <id>acceldata repo</id>
+      <name>acceldata repo</name>
+      <url>https://repo1.acceldata.dev/repository/odp-staging-central/</url>
     </repository>
   </repositories>
 
