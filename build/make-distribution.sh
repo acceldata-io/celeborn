@@ -153,10 +153,22 @@ function build_service {
   echo "Celeborn $VERSION$GITREVSTRING" > "$DIST_DIR/RELEASE"
   echo "Build flags: $@" >> "$DIST_DIR/RELEASE"
 
+  # Handle aws/aliyun profiles - need to explicitly include multipart-uploader modules
+  # Maven's -am flag doesn't properly resolve profile-activated dependencies
+  EXTRA_MODULES=""
+  if [[ $@ == *"-Paws"* ]]; then
+    EXTRA_MODULES=",multipart-uploader/multipart-uploader-s3"
+    echo "Detected -Paws profile, adding multipart-uploader-s3 module"
+  fi
+  if [[ $@ == *"-Paliyun"* ]]; then
+    EXTRA_MODULES="${EXTRA_MODULES},multipart-uploader/multipart-uploader-oss"
+    echo "Detected -Paliyun profile, adding multipart-uploader-oss module"
+  fi
+
   # Store the command as an array because $MVN variable might have spaces in it.
   # Normal quoting tricks don't work.
   # See: http://mywiki.wooledge.org/BashFAQ/050
-  BUILD_COMMAND=("$MVN" clean package $MVN_DIST_OPT -pl master,worker,cli -am $@)
+  BUILD_COMMAND=("$MVN" clean package $MVN_DIST_OPT -pl master,worker,cli${EXTRA_MODULES} -am $@)
 
   # Actually build the jar
   echo -e "\nBuilding with..."
@@ -401,7 +413,7 @@ if [ "$SBT_ENABLED" == "true" ]; then
   fi
 else
   if [ "$RELEASE" == "true" ]; then
-    build_service
+    build_service "$@"
     
     # Check if specific profiles are provided
     HAS_SPECIFIC_PROFILES=false
