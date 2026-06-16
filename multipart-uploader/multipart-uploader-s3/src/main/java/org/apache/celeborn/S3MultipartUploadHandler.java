@@ -19,14 +19,19 @@ package org.apache.celeborn;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSCredentialsProviderChain;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.retry.PredefinedBackoffStrategies;
 import com.amazonaws.retry.PredefinedRetryPolicies;
@@ -45,11 +50,7 @@ import com.amazonaws.services.s3.model.PartSummary;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.s3a.AWSCredentialProviderList;
 import org.apache.hadoop.fs.s3a.Constants;
-import org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider;
-import org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider;
-import org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,12 +86,12 @@ public class S3MultipartUploadHandler implements MultipartUploadHandler {
     this.maxBackoff = maxBackoff;
 
     Configuration conf = hadoopFs.getConf();
-    AWSCredentialProviderList providers = new AWSCredentialProviderList();
-    providers.add(new TemporaryAWSCredentialsProvider(conf));
-    providers.add(
-        new SimpleAWSCredentialsProvider(new URI(String.format("s3a://%s", bucketName)), conf));
-    providers.add(new EnvironmentVariableCredentialsProvider());
-    providers.add(new IAMInstanceCredentialsProvider());
+    // Build an AWS SDK v1 credentials chain directly. We can't reuse
+    // org.apache.hadoop.fs.s3a credential providers here because some Hadoop
+    // distributions ship hadoop-aws compiled against AWS SDK v2, in which case
+    // those classes no longer implement the v1 AWSCredentialsProvider interface
+    // expected by AmazonS3ClientBuilder.
+    AWSCredentialsProviderChain providers = buildCredentialsChain(conf);
 
     RetryPolicy retryPolicy =
         new RetryPolicy(
@@ -110,6 +111,27 @@ public class S3MultipartUploadHandler implements MultipartUploadHandler {
             .withClientConfiguration(clientConfig)
             .build();
     this.key = key;
+  }
+
+  private static AWSCredentialsProviderChain buildCredentialsChain(Configuration conf) {
+    List<AWSCredentialsProvider> providers = new ArrayList<>();
+    String accessKey = conf.getTrimmed(Constants.ACCESS_KEY);
+    String secretKey = conf.getTrimmed(Constants.SECRET_KEY);
+    String sessionToken = conf.getTrimmed(Constants.SESSION_TOKEN);
+    if (accessKey != null && !accessKey.isEmpty()
+        && secretKey != null && !secretKey.isEmpty()) {
+      if (sessionToken != null && !sessionToken.isEmpty()) {
+        providers.add(
+            new AWSStaticCredentialsProvider(
+                new BasicSessionCredentials(accessKey, secretKey, sessionToken)));
+      } else {
+        providers.add(
+            new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey)));
+      }
+    }
+    providers.add(new EnvironmentVariableCredentialsProvider());
+    providers.add(InstanceProfileCredentialsProvider.getInstance());
+    return new AWSCredentialsProviderChain(providers);
   }
 
   @Override
