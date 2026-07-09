@@ -137,6 +137,7 @@ object Dependencies {
   val ioDropwizardMetricsGraphite = "io.dropwizard.metrics" % "metrics-graphite" % metricsVersion excludeAll (
     ExclusionRule("com.rabbitmq", "amqp-client"))
   val ioDropwizardMetricsJvm = "io.dropwizard.metrics" % "metrics-jvm" % metricsVersion
+  val ioDropwizardMetricsJmx = "io.dropwizard.metrics" % "metrics-jmx" % metricsVersion
   val ioNetty = "io.netty" % "netty-all" % nettyVersion excludeAll(
     ExclusionRule("io.netty", "netty-handler-ssl-ocsp"))
   val leveldbJniGroup = if (System.getProperty("os.name").startsWith("Linux")
@@ -636,6 +637,7 @@ object CelebornCommon {
         Dependencies.ioDropwizardMetricsCore,
         Dependencies.ioDropwizardMetricsGraphite,
         Dependencies.ioDropwizardMetricsJvm,
+        Dependencies.ioDropwizardMetricsJmx,
         Dependencies.ioNetty,
         Dependencies.commonsCrypto,
         Dependencies.commonsLang3,
