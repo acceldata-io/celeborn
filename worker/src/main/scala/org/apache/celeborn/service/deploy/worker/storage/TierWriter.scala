@@ -185,7 +185,7 @@ abstract class TierWriterBase(
               dupBuf.skipBytes(compressedSize)
               metaHandler.afterFlush(compressedSize + 16)
             }
-            dupBuf.release
+            dupBuf.release()
           } else {
             metaHandler.afterFlush(numBytes)
           }
@@ -345,7 +345,7 @@ class MemoryTierWriter(
   override def returnBufferInternal(destroy: Boolean): Unit = {
     if (destroy && flushBuffer != null) {
       flushBuffer.removeComponents(0, flushBuffer.numComponents)
-      flushBuffer.release
+      flushBuffer.release()
     }
   }
 
