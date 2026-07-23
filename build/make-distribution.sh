@@ -73,6 +73,24 @@ while (( "$#" )); do
   shift
 done
 
+if [ "$RELEASE" == "true" ]; then
+  # Check if specific profiles are provided
+  HAS_SPECIFIC_PROFILES=false
+  if [[ $@ == *"-Pspark"* ]] || [[ $@ == *"-Pflink"* ]] || [[ $@ == *"-Pmr"* ]] || [[ $@ == *"-Ptez"* ]]; then
+    HAS_SPECIFIC_PROFILES=true
+  fi
+
+  if [ "$HAS_SPECIFIC_PROFILES" == "false" ]; then
+    # Full release build - require all Java versions
+    JAVA8_HOME=${JAVA8_HOME:?"JAVA8_HOME is required"}
+    JAVA11_HOME=${JAVA11_HOME:?"JAVA11_HOME is required"}
+    JAVA17_HOME=${JAVA17_HOME:?"JAVA17_HOME is required"}
+    # Set JAVA_HOME to JDK 8 by default for release
+    export JAVA_HOME=$JAVA8_HOME
+  fi
+  # If specific profiles are provided, just use current JAVA_HOME
+fi
+
 if [ -z "$JAVA_HOME" ]; then
   # Fall back on JAVA_HOME from rpm, if found
   if [ $(command -v rpm) ]; then
@@ -135,10 +153,22 @@ function build_service {
   echo "Celeborn $VERSION$GITREVSTRING" > "$DIST_DIR/RELEASE"
   echo "Build flags: $@" >> "$DIST_DIR/RELEASE"
 
+  # Handle aws/aliyun profiles - need to explicitly include multipart-uploader modules
+  # Maven's -am flag doesn't properly resolve profile-activated dependencies
+  EXTRA_MODULES=""
+  if [[ $@ == *"-Paws"* ]]; then
+    EXTRA_MODULES=",multipart-uploader/multipart-uploader-s3"
+    echo "Detected -Paws profile, adding multipart-uploader-s3 module"
+  fi
+  if [[ $@ == *"-Paliyun"* ]]; then
+    EXTRA_MODULES="${EXTRA_MODULES},multipart-uploader/multipart-uploader-oss"
+    echo "Detected -Paliyun profile, adding multipart-uploader-oss module"
+  fi
+
   # Store the command as an array because $MVN variable might have spaces in it.
   # Normal quoting tricks don't work.
   # See: http://mywiki.wooledge.org/BashFAQ/050
-  BUILD_COMMAND=("$MVN" clean package $MVN_DIST_OPT -pl master,worker,cli -am $@)
+  BUILD_COMMAND=("$MVN" clean package $MVN_DIST_OPT -pl master,worker,cli${EXTRA_MODULES} -am $@)
 
   # Actually build the jar
   echo -e "\nBuilding with..."
@@ -380,6 +410,7 @@ else
     build_service "$@"
     build_spark_client -Pspark-3.5
     build_spark_client -Pspark-4.0
+    build_spark_client -Pspark-4.1
     build_flink_client -Pflink-2.2
     build_mr_client -Pmr
     build_tez_client -Ptez
