@@ -73,14 +73,6 @@ while (( "$#" )); do
   shift
 done
 
-if [ "$RELEASE" == "true" ]; then
-  JAVA8_HOME=${JAVA8_HOME:?"JAVA8_HOME is required"}
-  JAVA11_HOME=${JAVA11_HOME:?"JAVA11_HOME is required"}
-  JAVA17_HOME=${JAVA17_HOME:?"JAVA17_HOME is required"}
-  # Set JAVA_HOME to JDK 8 by default for release
-  export JAVA_HOME=$JAVA8_HOME
-fi
-
 if [ -z "$JAVA_HOME" ]; then
   # Fall back on JAVA_HOME from rpm, if found
   if [ $(command -v rpm) ]; then
@@ -350,23 +342,11 @@ function sbt_build_client {
 if [ "$SBT_ENABLED" == "true" ]; then
   sbt_build_service "$@"
   if [ "$RELEASE" == "true" ]; then
-    export JAVA_HOME=$JAVA8_HOME
-    sbt_build_client -Pspark-2.4
-    sbt_build_client -Pspark-3.4
+    # This fork only ships Spark 3.5.x/4.x and Flink 2.2 clients, all
+    # compiled with a single JDK (no per-module JDK switching).
     sbt_build_client -Pspark-3.5
-    export JAVA_HOME=$JAVA17_HOME
     sbt_build_client -Pspark-4.0
-    export JAVA_HOME=$JAVA8_HOME
-    sbt_build_client -Pflink-1.16
-    sbt_build_client -Pflink-1.17
-    sbt_build_client -Pflink-1.18
-    sbt_build_client -Pflink-1.19
-    sbt_build_client -Pflink-1.20
-    export JAVA_HOME=$JAVA11_HOME
-    sbt_build_client -Pflink-2.0
-    sbt_build_client -Pflink-2.1
     sbt_build_client -Pflink-2.2
-    export JAVA_HOME=$JAVA8_HOME
     sbt_build_client -Pmr
 #    sbt_build_client -Ptez
   else
@@ -392,24 +372,14 @@ if [ "$SBT_ENABLED" == "true" ]; then
   fi
 else
   if [ "$RELEASE" == "true" ]; then
-    build_service
-    export JAVA_HOME=$JAVA8_HOME
-    build_spark_client -Pspark-2.4
-    build_spark_client -Pspark-3.4
+    # This fork only ships Spark 3.5.x/4.x and Flink 2.2 clients, all
+    # compiled with a single JDK (no per-module JDK switching). "$@" is
+    # forwarded to build_service so flags like -Paws (which gates the
+    # S3 multipart-uploader dependency) still take effect.
+    build_service "$@"
     build_spark_client -Pspark-3.5
-    export JAVA_HOME=$JAVA17_HOME
     build_spark_client -Pspark-4.0
-    export JAVA_HOME=$JAVA8_HOME
-    build_flink_client -Pflink-1.16
-    build_flink_client -Pflink-1.17
-    build_flink_client -Pflink-1.18
-    build_flink_client -Pflink-1.19
-    build_flink_client -Pflink-1.20
-    export JAVA_HOME=$JAVA11_HOME
-    build_flink_client -Pflink-2.0
-    build_flink_client -Pflink-2.1
     build_flink_client -Pflink-2.2
-    export JAVA_HOME=$JAVA8_HOME
     build_mr_client -Pmr
     build_tez_client -Ptez
   else
