@@ -376,7 +376,7 @@ if [ "$SBT_ENABLED" == "true" ]; then
     # This fork only ships Spark 3.5.x/4.x and Flink 2.2 clients, all
     # compiled with a single JDK (no per-module JDK switching).
     sbt_build_client -Pspark-3.5
-    sbt_build_client -Pspark-4.0
+    sbt_build_client -Pspark-4.1
     sbt_build_client -Pflink-2.2
     sbt_build_client -Pmr
 #    sbt_build_client -Ptez
@@ -409,7 +409,6 @@ else
     # S3 multipart-uploader dependency) still take effect.
     build_service "$@"
     build_spark_client -Pspark-3.5
-    build_spark_client -Pspark-4.0
     build_spark_client -Pspark-4.1
     build_flink_client -Pflink-2.2
     build_mr_client -Pmr
