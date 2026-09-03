@@ -55,7 +55,7 @@
   </distributionManagement>
 
   <properties>
-    <odp.release.version>3.4.3.0-1</odp.release.version>
+    <odp.release.version>3.4.3.0-SNAPSHOT</odp.release.version>
     <project.version>0.6.3.${odp.release.version}</project.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
