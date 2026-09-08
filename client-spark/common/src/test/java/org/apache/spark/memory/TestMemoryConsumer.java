@@ -17,16 +17,16 @@
 
 package org.apache.spark.memory;
 
-import com.google.common.annotations.VisibleForTesting;
-
-import org.apache.spark.unsafe.memory.MemoryBlock;
-
 import java.io.IOException;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.spark.unsafe.memory.MemoryBlock;
 
 public class TestMemoryConsumer extends MemoryConsumer {
   public TestMemoryConsumer(TaskMemoryManager memoryManager, MemoryMode mode) {
     super(memoryManager, 1024L, mode);
   }
+
   public TestMemoryConsumer(TaskMemoryManager memoryManager) {
     this(memoryManager, MemoryMode.ON_HEAP);
   }

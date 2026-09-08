@@ -67,7 +67,7 @@ class TestMemoryManager(conf: SparkConf)
     require(
       newMemoryUsage >= 0,
       s"Attempting to free $numBytes of memory for task attempt $taskAttemptId, but it only " +
-      s"allocated $existingMemoryUsage bytes of memory")
+        s"allocated $existingMemoryUsage bytes of memory")
     memoryForTask(taskAttemptId) = newMemoryUsage
   }
 
