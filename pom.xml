@@ -90,13 +90,13 @@
     <guava.version>33.1.0-jre</guava.version>
     <junit.version>4.13.2</junit.version>
     <leveldb.version>1.8</leveldb.version>
-    <log4j2.version>2.24.3</log4j2.version>
+    <log4j2.version>2.25.4</log4j2.version>
     <disruptor.version>3.4.4</disruptor.version>
     <lz4-java.group>at.yawk.lz4</lz4-java.group>
     <lz4-java.version>1.10.4</lz4-java.version>
     <mockito.version>4.11.0</mockito.version>
     <mockito-scalatest.version>1.17.14</mockito-scalatest.version>
-    <netty.version>4.1.118.Final</netty.version>
+    <netty.version>4.2.17.Final</netty.version>
     <bouncycastle.version>1.77</bouncycastle.version>
     <protobuf.version>3.25.5</protobuf.version>
     <ratis.version>3.1.3</ratis.version>
@@ -107,7 +107,7 @@
     <zstd-jni.version>1.5.7-1</zstd-jni.version>
     <kubernetes-client.version>6.7.0</kubernetes-client.version>
     <rocksdbjni.version>9.10.0</rocksdbjni.version>
-    <jackson.version>2.15.3</jackson.version>
+    <jackson.version>2.18.8</jackson.version>
     <snappy.version>1.1.10.5</snappy.version>
     <ap.loader.version>4.0-10</ap.loader.version>
     <picocli.version>4.7.6</picocli.version>
@@ -131,7 +131,7 @@
     <!-- openapi-generator dependencies -->
     <openapitools.jackson-databind-nullable.version>0.2.6</openapitools.jackson-databind-nullable.version>
     <httpclient5.version>5.3.1</httpclient5.version>
-    <httpcore5.version>5.2.4</httpcore5.version>
+    <httpcore5.version>5.4.3</httpcore5.version>
 
     <!-- org.fusesource.leveldbjni will be used except on arm64 platform. -->
     <leveldbjni.group>org.fusesource.leveldbjni</leveldbjni.group>
