@@ -55,7 +55,7 @@
   </distributionManagement>
 
   <properties>
-    <odp.release.version>3.3.6.5-SNAPSHOT</odp.release.version>
+    <odp.release.version>3.3.6.501-SNAPSHOT</odp.release.version>
     <project.version>0.6.2.${odp.release.version}</project.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -1593,7 +1593,7 @@
         <lz4-java.version>1.8.0</lz4-java.version>
         <scala.version>2.13.17</scala.version>
         <scala.binary.version>2.13</scala.binary.version>
-        <spark.version>4.1.1.3.3.6.5-SNAPSHOT</spark.version>
+        <spark.version>4.1.1.3.3.6.501-SNAPSHOT</spark.version>
         <zstd-jni.version>1.5.7-6</zstd-jni.version>
       </properties>
     </profile>
