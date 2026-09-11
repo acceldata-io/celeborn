@@ -84,7 +84,7 @@ object Dependencies {
   val jakartaServeletApiVersion = "5.0.0"
   val openApiToolsJacksonBindNullableVersion = "0.2.6"
   val httpClient5Version = "5.3.1"
-  val httpCore5Version = "5.2.4"
+  val httpCore5Version = "5.4.3"
   val jakartaAnnotationApiVersion = "1.3.5"
   val jakartaWsRsApiVersion = "2.1.6"
   val picocliVersion = "4.7.6"
