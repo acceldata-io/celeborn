@@ -67,6 +67,7 @@ object Dependencies {
   val roaringBitmapVersion = "1.0.6"
   val rocksdbJniVersion = "9.10.0"
   val jacksonVersion = "2.21.4"
+  val jacksonAnnotationsVersion = "2.21"
   val jakartaActivationApiVersion = "1.2.1"
   val scalatestMockitoVersion = "1.17.14"
   val scalatestVersion = "3.2.16"
@@ -167,7 +168,7 @@ object Dependencies {
   val rocksdbJni = "org.rocksdb" % "rocksdbjni" % rocksdbJniVersion
   val jacksonDatabind = "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion
   val jacksonCore = "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion
-  val jacksonAnnotations = "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion
+  val jacksonAnnotations = "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
   val jacksonModule = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion
   val jacksonDataTypeJsr310 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonVersion
   val jacksonDataFormatYam = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % jacksonVersion
