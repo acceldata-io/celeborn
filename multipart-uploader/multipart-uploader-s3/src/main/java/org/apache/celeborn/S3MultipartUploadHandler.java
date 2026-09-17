@@ -118,8 +118,7 @@ public class S3MultipartUploadHandler implements MultipartUploadHandler {
     String accessKey = conf.getTrimmed(Constants.ACCESS_KEY);
     String secretKey = conf.getTrimmed(Constants.SECRET_KEY);
     String sessionToken = conf.getTrimmed(Constants.SESSION_TOKEN);
-    if (accessKey != null && !accessKey.isEmpty()
-        && secretKey != null && !secretKey.isEmpty()) {
+    if (accessKey != null && !accessKey.isEmpty() && secretKey != null && !secretKey.isEmpty()) {
       if (sessionToken != null && !sessionToken.isEmpty()) {
         providers.add(
             new AWSStaticCredentialsProvider(
