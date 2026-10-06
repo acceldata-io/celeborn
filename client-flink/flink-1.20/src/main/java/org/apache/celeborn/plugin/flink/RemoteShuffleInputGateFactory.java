@@ -50,7 +50,9 @@ public class RemoteShuffleInputGateFactory extends AbstractRemoteShuffleInputGat
       String compressionCodec,
       Map<Integer, ShuffleIOMetricGroup> shuffleIOMetricGroups) {
     BufferDecompressor bufferDecompressor =
-        new BufferDecompressor(networkBufferSize, CompressionCodec.valueOf(compressionCodec));
+        org.apache.celeborn.common.protocol.CompressionCodec.NONE.name().equals(compressionCodec)
+            ? null
+            : new BufferDecompressor(networkBufferSize, CompressionCodec.valueOf(compressionCodec));
     return new RemoteShuffleInputGate(
         celebornConf,
         ownerContext,
