@@ -39,7 +39,7 @@ import org.apache.celeborn.common.CelebornConf
 import org.apache.celeborn.common.exception.CelebornException
 import org.apache.celeborn.common.identity.UserIdentifier
 import org.apache.celeborn.common.internal.Logging
-import org.apache.celeborn.common.meta.{DeviceInfo, DiskFileInfo, DiskInfo, DiskStatus, FileInfo, MapFileMeta, MemoryFileInfo, ReduceFileMeta, TimeWindow}
+import org.apache.celeborn.common.meta.{DeviceInfo, DiskFileInfo, DiskInfo, DiskStatus, FileInfo, FileMeta, MapFileMeta, MemoryFileInfo, ReduceFileMeta, TimeWindow}
 import org.apache.celeborn.common.metrics.source.{AbstractSource, ThreadPoolSource}
 import org.apache.celeborn.common.network.util.{NettyUtils, TransportConf}
 import org.apache.celeborn.common.protocol.{PartitionLocation, PartitionSplitMode, PartitionType, StorageInfo}
@@ -1070,6 +1070,23 @@ final private[worker] class StorageManager(conf: CelebornConf, workerSource: Abs
     memoryFileInfo
   }
 
+  private def buildFileMeta(
+      partitionType: PartitionType,
+      mountPoint: String = null): FileMeta = {
+    partitionType match {
+      case PartitionType.REDUCE =>
+        new ReduceFileMeta(conf.shuffleChunkSize)
+      case PartitionType.MAP =>
+        val mapFileMeta = new MapFileMeta()
+        if (mountPoint != null) {
+          mapFileMeta.setMountPoint(mountPoint)
+        }
+        mapFileMeta
+      case PartitionType.MAPGROUP =>
+        throw new NotImplementedError("Map group is not implemented")
+    }
+  }
+
   /**
    * @return (Flusher,DiskFileInfo,workingDir)
    */
@@ -1114,7 +1131,7 @@ final private[worker] class StorageManager(conf: CelebornConf, workerSource: Abs
         val hdfsFileInfo = new DiskFileInfo(
           userIdentifier,
           partitionSplitEnabled,
-          new ReduceFileMeta(conf.shuffleChunkSize),
+          buildFileMeta(partitionType, StorageInfo.Type.HDFS.name),
           hdfsFilePath,
           StorageInfo.Type.HDFS)
         diskFileInfos.computeIfAbsent(shuffleKey, diskFileInfoMapFunc).put(
@@ -1132,7 +1149,7 @@ final private[worker] class StorageManager(conf: CelebornConf, workerSource: Abs
         val s3FileInfo = new DiskFileInfo(
           userIdentifier,
           partitionSplitEnabled,
-          new ReduceFileMeta(conf.shuffleChunkSize),
+          buildFileMeta(partitionType, StorageInfo.Type.S3.name),
           s3FilePath,
           StorageInfo.Type.S3)
         diskFileInfos.computeIfAbsent(shuffleKey, diskFileInfoMapFunc).put(
@@ -1150,7 +1167,7 @@ final private[worker] class StorageManager(conf: CelebornConf, workerSource: Abs
         val ossFileInfo = new DiskFileInfo(
           userIdentifier,
           partitionSplitEnabled,
-          new ReduceFileMeta(conf.shuffleChunkSize),
+          buildFileMeta(partitionType, StorageInfo.Type.OSS.name),
           ossFilePath,
           StorageInfo.Type.OSS)
         diskFileInfos.computeIfAbsent(shuffleKey, diskFileInfoMapFunc).put(
@@ -1175,16 +1192,7 @@ final private[worker] class StorageManager(conf: CelebornConf, workerSource: Abs
             }
           }
           val filePath = file.getAbsolutePath
-          val fileMeta = partitionType match {
-            case PartitionType.REDUCE =>
-              new ReduceFileMeta(conf.shuffleChunkSize)
-            case PartitionType.MAP =>
-              val mapFileMeta = new MapFileMeta()
-              mapFileMeta.setMountPoint(mountPoint)
-              mapFileMeta
-            case PartitionType.MAPGROUP =>
-              throw new NotImplementedError("Map group is not implemented")
-          }
+          val fileMeta = buildFileMeta(partitionType, mountPoint)
           val diskFileInfo = new DiskFileInfo(
             userIdentifier,
             partitionSplitEnabled,
