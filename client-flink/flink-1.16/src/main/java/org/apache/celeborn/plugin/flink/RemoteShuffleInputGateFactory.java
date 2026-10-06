@@ -30,6 +30,7 @@ import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.util.function.SupplierWithException;
 
 import org.apache.celeborn.common.CelebornConf;
+import org.apache.celeborn.common.protocol.CompressionCodec;
 
 /** Factory class to create {@link RemoteShuffleInputGate}. */
 public class RemoteShuffleInputGateFactory extends AbstractRemoteShuffleInputGateFactory {
@@ -48,7 +49,9 @@ public class RemoteShuffleInputGateFactory extends AbstractRemoteShuffleInputGat
       String compressionCodec,
       Map<Integer, ShuffleIOMetricGroup> shuffleIOMetricGroups) {
     BufferDecompressor bufferDecompressor =
-        new BufferDecompressor(networkBufferSize, compressionCodec);
+        CompressionCodec.NONE.name().equals(compressionCodec)
+            ? null
+            : new BufferDecompressor(networkBufferSize, compressionCodec);
     return new RemoteShuffleInputGate(
         celebornConf,
         ownerContext,
