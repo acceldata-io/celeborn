@@ -1303,7 +1303,8 @@ class LifecycleManager(val appUniqueId: String, val conf: CelebornConf) extends 
             userIdentifier,
             conf.pushDataTimeoutMs,
             partitionSplitEnabled = true,
-            isSegmentGranularityVisible = isSegmentGranularityVisible))
+            isSegmentGranularityVisible = isSegmentGranularityVisible,
+            allowMapAttemptSupersede = conf.allowMapAttemptSupersede))
         futures.add((future, workerInfo))
       }(ec)
     }
