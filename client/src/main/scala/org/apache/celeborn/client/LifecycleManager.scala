@@ -1930,6 +1930,17 @@ class LifecycleManager(val appUniqueId: String, val conf: CelebornConf) extends 
     releasePartitionManager.releasePartition(shuffleId, partitionId)
   }
 
+  /**
+   * Abort a failed map attempt so a retry's data can supersede it. Called by the engine driver /
+   * application master (e.g. MRAppMasterWithCeleborn) when it observes a map task attempt
+   * finalize as FAILED and a retry is scheduled. The failed attempt's partial data may already be
+   * committed; this resets the map's commit latch, re-opens the stage and drops the stale reducer
+   * file group so the retry's commit produces complete, correct output.
+   */
+  def abortMapperAttempt(shuffleId: Int, mapId: Int, failedAttemptId: Int): Unit = {
+    commitManager.abortMapperAttempt(shuffleId, mapId, failedAttemptId)
+  }
+
   def getAllocatedWorkers(): Set[WorkerInfo] = {
     shuffleAllocatedWorkers.asScala.values.flatMap(_.values().asScala.map(_.workerInfo)).toSet
   }
