@@ -300,5 +300,17 @@ public class MRAppMasterWithCeleborn extends MRAppMaster {
           MASTER_ENDPOINTS_ENV);
       conf.set(masterEndpointsKey, ensureGetSysEnv(MASTER_ENDPOINTS_ENV));
     }
+    // Enable MR map-task-retry supersede: MR retries a failed map as a newer attemptId, but the
+    // failed attempt's mapperEnd may already have committed partial data and marked the map ended
+    // on the worker. Without this, the retry's pushes are rejected (MAP_ENDED) and its mapperEnd
+    // skipped (first-wins), so the reducer reads the failed attempt's partial rows (ODP-8173).
+    // The per-shuffle flag only takes effect for MR-registered shuffles (the AM's LifecycleManager
+    // sets it on ReserveSlots); Spark/Flink/Tez are unaffected.
+    String supersedeKey =
+        HadoopUtils.MR_PREFIX + CelebornConf.SHUFFLE_ALLOW_MAP_ATTEMPT_SUPERSEDE().key();
+    if (!conf.getBoolean(supersedeKey, false)) {
+      logger.info("MRAppMaster enables map attempt supersede ({}).", supersedeKey);
+      conf.setBoolean(supersedeKey, true);
+    }
   }
 }
