@@ -88,14 +88,14 @@ public class MRAppMasterWithCeleborn extends MRAppMaster {
   }
 
   /**
-   * Register a handler for map task attempt failures so the AM can tell Celeborn when a map
-   * attempt has failed. MR retries a failed map as a fresh attemptId, but the failed attempt's
-   * mapperEnd may already have committed partial data. Without telling Celeborn, the retry's
-   * mapperEnd is skipped ("first-wins") and the reducer reads the failed attempt's partial rows.
-   * When a map attempt terminates as FAILED here, abort the failed attempt on the client so the
-   * retry's complete data can supersede it.
+   * Register a handler for map task attempt failures so the AM can tell Celeborn when a map attempt
+   * has failed. MR retries a failed map as a fresh attemptId, but the failed attempt's mapperEnd
+   * may already have committed partial data. Without telling Celeborn, the retry's mapperEnd is
+   * skipped ("first-wins") and the reducer reads the failed attempt's partial rows. When a map
+   * attempt terminates as FAILED here, abort the failed attempt on the client so the retry's
+   * complete data can supersede it.
    *
-   * MR always uses shuffleId 0 and mapId = the MR task id.
+   * <p>MR always uses shuffleId 0 and mapId = the MR task id.
    */
   @Override
   protected void serviceStart() throws Exception {
