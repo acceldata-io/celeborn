@@ -307,6 +307,10 @@ private[celeborn] class Worker(
     JavaUtils.newConcurrentHashMap[String, AtomicIntegerArray]()
   val shufflePartitionType: ConcurrentHashMap[String, PartitionType] =
     JavaUtils.newConcurrentHashMap[String, PartitionType]
+  // per-shuffle flag allowing a newer map attempt to supersede an ended map's attempt
+  // (set by MR only via ReserveSlots.allowMapAttemptSupersede)
+  val shuffleAllowMapAttemptSupersede: ConcurrentHashMap[String, java.lang.Boolean] =
+    JavaUtils.newConcurrentHashMap[String, java.lang.Boolean]
   var shufflePushDataTimeout: ConcurrentHashMap[String, Long] =
     JavaUtils.newConcurrentHashMap[String, Long]
   val partitionLocationInfo = new WorkerPartitionLocationInfo
@@ -810,6 +814,7 @@ private[celeborn] class Worker(
       expiredShuffleKeys.asScala.foreach { shuffleKey =>
         partitionLocationInfo.removeShuffle(shuffleKey)
         shufflePartitionType.remove(shuffleKey)
+        shuffleAllowMapAttemptSupersede.remove(shuffleKey)
         shufflePushDataTimeout.remove(shuffleKey)
         shuffleMapperAttempts.remove(shuffleKey)
         shuffleCommitInfos.remove(shuffleKey)

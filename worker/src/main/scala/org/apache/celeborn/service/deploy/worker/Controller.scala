@@ -57,6 +57,7 @@ private[deploy] class Controller(
       : ConcurrentHashMap[String, ConcurrentHashMap[Long, (Long, RpcCallContext)]] =
     _
   var shufflePartitionType: ConcurrentHashMap[String, PartitionType] = _
+  var shuffleAllowMapAttemptSupersede: ConcurrentHashMap[String, java.lang.Boolean] = _
   var shufflePushDataTimeout: ConcurrentHashMap[String, Long] = _
   var workerInfo: WorkerInfo = _
   var partitionLocationInfo: WorkerPartitionLocationInfo = _
@@ -76,6 +77,7 @@ private[deploy] class Controller(
   def init(worker: Worker): Unit = {
     storageManager = worker.storageManager
     shufflePartitionType = worker.shufflePartitionType
+    shuffleAllowMapAttemptSupersede = worker.shuffleAllowMapAttemptSupersede
     shufflePushDataTimeout = worker.shufflePushDataTimeout
     shuffleMapperAttempts = worker.shuffleMapperAttempts
     shuffleCommitInfos = worker.shuffleCommitInfos
@@ -113,7 +115,8 @@ private[deploy] class Controller(
           userIdentifier,
           pushDataTimeout,
           partitionSplitEnabled,
-          isSegmentGranularityVisible) =>
+          isSegmentGranularityVisible,
+          allowMapAttemptSupersede) =>
       checkAuth(context, applicationId)
       val shuffleKey = Utils.makeShuffleKey(applicationId, shuffleId)
       workerSource.sample(WorkerSource.RESERVE_SLOTS_TIME, shuffleKey) {
@@ -133,7 +136,8 @@ private[deploy] class Controller(
           userIdentifier,
           pushDataTimeout,
           partitionSplitEnabled,
-          isSegmentGranularityVisible)
+          isSegmentGranularityVisible,
+          allowMapAttemptSupersede)
         logDebug(s"ReserveSlots for $shuffleKey finished.")
       }
 
@@ -180,7 +184,8 @@ private[deploy] class Controller(
       userIdentifier: UserIdentifier,
       pushDataTimeout: Long,
       partitionSplitEnabled: Boolean,
-      isSegmentGranularityVisible: Boolean): Unit = {
+      isSegmentGranularityVisible: Boolean,
+      allowMapAttemptSupersede: Boolean): Unit = {
     val shuffleKey = Utils.makeShuffleKey(applicationId, shuffleId)
     if (shutdown.get()) {
       val msg = "Current worker is shutting down!"
@@ -242,6 +247,9 @@ private[deploy] class Controller(
     partitionLocationInfo.addPrimaryPartitions(shuffleKey, primaryLocs)
     partitionLocationInfo.addReplicaPartitions(shuffleKey, replicaLocs)
     shufflePartitionType.put(shuffleKey, partitionType)
+    if (allowMapAttemptSupersede) {
+      shuffleAllowMapAttemptSupersede.put(shuffleKey, java.lang.Boolean.TRUE)
+    }
     shufflePushDataTimeout.put(
       shuffleKey,
       if (pushDataTimeout <= 0) defaultPushdataTimeout else pushDataTimeout)

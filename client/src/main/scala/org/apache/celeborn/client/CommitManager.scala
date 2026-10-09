@@ -245,6 +245,10 @@ class CommitManager(appUniqueId: String, val conf: CelebornConf, lifecycleManage
     getCommitHandler(shuffleId).releasePartitionResource(shuffleId, partitionId)
   }
 
+  def abortMapperAttempt(shuffleId: Int, mapId: Int, failedAttemptId: Int): Unit = {
+    getCommitHandler(shuffleId).abortMapperAttempt(shuffleId, mapId, failedAttemptId)
+  }
+
   def removeExpiredShuffle(shuffleId: Int): Unit = {
     committedPartitionInfo.remove(shuffleId)
     getCommitHandler(shuffleId).removeExpiredShuffle(shuffleId)
