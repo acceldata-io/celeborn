@@ -207,6 +207,15 @@ abstract class CommitHandler(
   def getMapperAttempts(shuffleId: Int): Array[Int]
 
   /**
+   * Abort a failed map attempt so a retry can supersede it. No-op by default; only
+   * [[ReducePartitionCommitHandler]] supports re-opening a stage end.
+   */
+  def abortMapperAttempt(shuffleId: Int, mapId: Int, failedAttemptId: Int): Unit = {
+    logWarning(s"[abortMapperAttempt] abort not supported for this partition type, shuffle " +
+      s"$shuffleId map $mapId attempt $failedAttemptId ignored.")
+  }
+
+  /**
    * return (thisMapperAttemptedFinishedSuccessOrNot, allMapperFinishedOrNot)
    */
   def finishMapperAttempt(

@@ -1107,6 +1107,8 @@ class CelebornConf(loadDefaults: Boolean) extends Cloneable with Logging with Se
   def getReducerFileGroupBroadcastMiniSize =
     get(CLIENT_SHUFFLE_GET_REDUCER_FILE_GROUP_BROADCAST_MINI_SIZE)
   def shufflePartitionType: PartitionType = PartitionType.valueOf(get(SHUFFLE_PARTITION_TYPE))
+
+  def allowMapAttemptSupersede: Boolean = get(SHUFFLE_ALLOW_MAP_ATTEMPT_SUPERSEDE)
   def shuffleRangeReadFilterEnabled: Boolean = get(SHUFFLE_RANGE_READ_FILTER_ENABLED)
   def shuffleForceFallbackEnabled: Boolean = get(SPARK_SHUFFLE_FORCE_FALLBACK_ENABLED)
   def checkWorkerEnabled: Boolean = get(CHECK_WORKER_ENABLED)
@@ -5052,6 +5054,21 @@ object CelebornConf extends Logging {
       .version("0.3.0")
       .bytesConf(ByteUnit.BYTE)
       .createWithDefaultString("1G")
+
+  val SHUFFLE_ALLOW_MAP_ATTEMPT_SUPERSEDE: ConfigEntry[Boolean] =
+    buildConf("celeborn.client.shuffle.allow.map.attempt.supersede")
+      .categories("client")
+      .doc(
+        "If an engine client retries a failed map task as a newer attemptId, the failed attempt's " +
+          "'mapper end' may already have committed partial data and marked the map ended on the " +
+          "worker. When this is enabled, the client asks each worker (via ReserveSlots) to accept a " +
+          "strictly-newer attempt's push for an already-ended map and supersede the failed attempt. " +
+          "This is set by the MapReduce client to fix data loss when a map task fails and is " +
+          "retried; Spark/Flink/Tez clients keep it false and their shuffles behave unchanged, " +
+          "because the flag is per-shuffle and only truly-carried for shuffles that opt in.")
+      .version("0.6.2")
+      .booleanConf
+      .createWithDefault(false)
 
   val SHUFFLE_PARTITION_SPLIT_MODE: ConfigEntry[String] =
     buildConf("celeborn.client.shuffle.partitionSplit.mode")

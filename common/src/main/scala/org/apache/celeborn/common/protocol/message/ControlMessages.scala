@@ -543,7 +543,11 @@ object ControlMessages extends Logging {
       userIdentifier: UserIdentifier,
       pushDataTimeout: Long,
       partitionSplitEnabled: Boolean = false,
-      isSegmentGranularityVisible: Boolean = false)
+      isSegmentGranularityVisible: Boolean = false,
+      // MR-only per-shuffle flag: when true, the worker accepts a push from a strictly-newer
+      // attemptId for an already-ended map (superseding the recorded attempt) instead of
+      // replying MAP_ENDED. Defaults to false so Spark/Flink/Tez shuffles are unaffected.
+      allowMapAttemptSupersede: Boolean = false)
     extends WorkerMessage
 
   case class ReserveSlotsResponse(
@@ -1001,7 +1005,8 @@ object ControlMessages extends Logging {
           userIdentifier,
           pushDataTimeout,
           partitionSplitEnabled,
-          isSegmentGranularityVisible) =>
+          isSegmentGranularityVisible,
+          allowMapAttemptSupersede) =>
       val payload = PbReserveSlots.newBuilder()
         .setApplicationId(applicationId)
         .setShuffleId(shuffleId)
@@ -1015,6 +1020,7 @@ object ControlMessages extends Logging {
         .setPushDataTimeout(pushDataTimeout)
         .setPartitionSplitEnabled(partitionSplitEnabled)
         .setIsSegmentGranularityVisible(isSegmentGranularityVisible)
+        .setAllowMapAttemptSupersede(allowMapAttemptSupersede)
         .build().toByteArray
       new TransportMessage(MessageType.RESERVE_SLOTS, payload)
 
@@ -1441,7 +1447,8 @@ object ControlMessages extends Logging {
           userIdentifier,
           pbReserveSlots.getPushDataTimeout,
           pbReserveSlots.getPartitionSplitEnabled,
-          pbReserveSlots.getIsSegmentGranularityVisible)
+          pbReserveSlots.getIsSegmentGranularityVisible,
+          pbReserveSlots.getAllowMapAttemptSupersede)
 
       case RESERVE_SLOTS_RESPONSE_VALUE =>
         val pbReserveSlotsResponse = PbReserveSlotsResponse.parseFrom(message.getPayload)
