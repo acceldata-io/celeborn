@@ -29,7 +29,12 @@ import org.apache.hadoop.ipc.CallerContext;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.JobSubmissionFiles;
 import org.apache.hadoop.mapreduce.MRJobConfig;
+import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
+import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
+import org.apache.hadoop.mapreduce.v2.api.records.TaskType;
 import org.apache.hadoop.mapreduce.v2.app.MRAppMaster;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
+import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.util.MRApps;
 import org.apache.hadoop.mapreduce.v2.util.MRWebAppUtil;
 import org.apache.hadoop.util.ExitUtil;
@@ -39,6 +44,7 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +84,64 @@ public class MRAppMasterWithCeleborn extends MRAppMaster {
       lmConf.set(HadoopUtils.MR_CELEBORN_LM_PORT, lmPort + "");
       lmConf.set(HadoopUtils.MR_CELEBORN_APPLICATION_ID, appUniqueId);
       writeLifecycleManagerConfToTask(jobConf, lmConf);
+    }
+  }
+
+  /**
+   * Register a handler for map task attempt failures so the AM can tell Celeborn when a map
+   * attempt has failed. MR retries a failed map as a fresh attemptId, but the failed attempt's
+   * mapperEnd may already have committed partial data. Without telling Celeborn, the retry's
+   * mapperEnd is skipped ("first-wins") and the reducer reads the failed attempt's partial rows.
+   * When a map attempt terminates as FAILED here, abort the failed attempt on the client so the
+   * retry's complete data can supersede it.
+   *
+   * MR always uses shuffleId 0 and mapId = the MR task id.
+   */
+  @Override
+  protected void serviceStart() throws Exception {
+    super.serviceStart();
+    if (lifecycleManager != null && getDispatcher() != null) {
+      getDispatcher()
+          .register(
+              TaskAttemptEventType.class,
+              (EventHandler<TaskAttemptEvent>)
+                  event -> {
+                    if (event == null || event.getTaskAttemptID() == null) {
+                      return;
+                    }
+                    TaskAttemptEventType type = event.getType();
+                    // Terminal failure transitions that trigger a retry. TA_CONTAINER_COMPLETED
+                    // is handled by the MR task state machine (it may cover SUCCESS, FAILED or
+                    // KILLED); the FAILED/TIMED_OUT/PREEMPTED/KILLED transitions are the ones we
+                    // must react to so a retried map's data is not lost.
+                    boolean failed =
+                        type == TaskAttemptEventType.TA_FAILMSG
+                            || type == TaskAttemptEventType.TA_TIMED_OUT
+                            || type == TaskAttemptEventType.TA_PREEMPTED
+                            || type == TaskAttemptEventType.TA_KILL;
+                    if (!failed) {
+                      return;
+                    }
+                    TaskAttemptId attemptId = event.getTaskAttemptID();
+                    TaskId taskId = attemptId.getTaskId();
+                    if (taskId.getTaskType() != TaskType.MAP) {
+                      return;
+                    }
+                    int mapId = taskId.getId();
+                    int attempt = attemptId.getId();
+                    logger.info(
+                        "Map attempt {} (task {}) {}; aborting failed attempt in Celeborn so retry's data supersedes.",
+                        attempt,
+                        mapId,
+                        type);
+                    try {
+                      // MR shuffle is always shuffleId 0.
+                      lifecycleManager.abortMapperAttempt(0, mapId, attempt);
+                    } catch (Throwable t) {
+                      logger.warn("Failed to abort map attempt {} for map {}", attempt, mapId, t);
+                    }
+                  });
+      logger.info("Registered Celeborn map-attempt-failure handler on AM dispatcher.");
     }
   }
 
@@ -235,6 +299,18 @@ public class MRAppMasterWithCeleborn extends MRAppMaster {
           masterEndpointsKey,
           MASTER_ENDPOINTS_ENV);
       conf.set(masterEndpointsKey, ensureGetSysEnv(MASTER_ENDPOINTS_ENV));
+    }
+    // Enable MR map-task-retry supersede: MR retries a failed map as a newer attemptId, but the
+    // failed attempt's mapperEnd may already have committed partial data and marked the map ended
+    // on the worker. Without this, the retry's pushes are rejected (MAP_ENDED) and its mapperEnd
+    // skipped (first-wins), so the reducer reads the failed attempt's partial rows (ODP-8173).
+    // The per-shuffle flag only takes effect for MR-registered shuffles (the AM's LifecycleManager
+    // sets it on ReserveSlots); Spark/Flink/Tez are unaffected.
+    String supersedeKey =
+        HadoopUtils.MR_PREFIX + CelebornConf.SHUFFLE_ALLOW_MAP_ATTEMPT_SUPERSEDE().key();
+    if (!conf.getBoolean(supersedeKey, false)) {
+      logger.info("MRAppMaster enables map attempt supersede ({}).", supersedeKey);
+      conf.setBoolean(supersedeKey, true);
     }
   }
 }
