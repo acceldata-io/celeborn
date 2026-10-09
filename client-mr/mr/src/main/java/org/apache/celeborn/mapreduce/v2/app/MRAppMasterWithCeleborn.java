@@ -133,11 +133,11 @@ public class MRAppMasterWithCeleborn extends MRAppMaster {
    * released. Without this, the Celeborn master only frees the application (and the worker's
    * shuffle files) via heartbeat timeout, leaking disk space after the job finishes.
    *
-   * This is overridden in {@code serviceStop()} rather than {@code stop()}: Hadoop invokes the
+   * <p>This is overridden in {@code serviceStop()} rather than {@code stop()}: Hadoop invokes the
    * state-guarded service transition exactly once, whereas {@code stop()} can be reached twice on
    * the AM ({@code MRAppMaster#shutDownJob()} then the JVM-shutdown hook), which would stop the
-   * LifecycleManager twice. {@code serviceStop()} mirrors the Tez client
-   * ({@code CelebornDagAppMaster#serviceStop()}).
+   * LifecycleManager twice. {@code serviceStop()} mirrors the Tez client ({@code
+   * CelebornDagAppMaster#serviceStop()}).
    */
   @Override
   protected void serviceStop() throws Exception {
