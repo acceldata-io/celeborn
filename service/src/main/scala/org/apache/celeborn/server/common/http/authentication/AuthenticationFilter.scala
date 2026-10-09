@@ -31,6 +31,7 @@ import org.apache.celeborn.common.authentication.HttpAuthSchemes.HttpAuthScheme
 import org.apache.celeborn.common.internal.Logging
 import org.apache.celeborn.server.common.Service
 import org.apache.celeborn.server.common.http.HttpAuthUtils.AUTHORIZATION_HEADER
+import org.apache.celeborn.server.common.http.HttpAuthUtils.WWW_AUTHENTICATE_HEADER
 import org.apache.celeborn.server.common.http.RestAuditLogger
 
 class AuthenticationFilter(conf: CelebornConf, serviceName: String) extends Filter with Logging {
@@ -154,10 +155,26 @@ class AuthenticationFilter(conf: CelebornConf, serviceName: String) extends Filt
     try {
       if (matchedHandler == null) {
         logDebug(s"No auth scheme matched for url: ${httpRequest.getRequestURL}")
-        httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
-        httpResponse.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED,
-          s"No auth scheme matched for $authorization")
+        if (authorization == null || authorization.isEmpty) {
+          // First request — no Authorization header yet.
+          // Challenge the client with all supported schemes to start the handshake
+          // (e.g. SPNEGO/Kerberos requires a 401+WWW-Authenticate to initiate).
+          authSchemeHandlers.keys.foreach { scheme =>
+            httpResponse.addHeader(WWW_AUTHENTICATE_HEADER, scheme.toString)
+          }
+          httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+          httpResponse.setContentType("text/html;charset=iso-8859-1")
+          httpResponse.getWriter.write(
+            "<html><body><h2>HTTP ERROR 401 Unauthorized</h2></body></html>")
+          httpResponse.getWriter.flush
+        } else {
+          // Client sent an Authorization header but none of the registered
+          // handlers matched it (e.g. client sent Basic while server
+          // only accepts NEGOTIATE).
+          httpResponse.sendError(
+            HttpServletResponse.SC_UNAUTHORIZED,
+            s"No auth scheme matched for $authorization")
+        }
       } else {
         HTTP_AUTH_TYPE.set(matchedHandler.authScheme.toString)
         HTTP_CLIENT_IDENTIFIER.set(matchedHandler.authenticate(httpRequest, httpResponse))
