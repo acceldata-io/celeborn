@@ -272,48 +272,35 @@ class ReducePartitionCommitHandler(
   }
 
   /**
-   * Abort a failed map attempt so a retry's data can supersede it. Called by the AM when it
-   * observes a map task attempt finalize as FAILED (MR retries the map as a newer attemptId).
+   * Abort a failed map attempt so its retry is accepted. Called by the AM when it observes a map
+   * task attempt finalize as FAILED/KILLED (MR retries the map as a newer attemptId).
    *
-   * The failed attempt had already reported mapperEnd and its partial data may already be
-   * committed (StageEnd + CommitFiles fired when it was the last mapper to report). To let the
-   * retry restore correctness we must, on the client side:
-   *   1. reset this map's attempt latch so the retry's mapperEnd is accepted (not skipped by the
-   *      first-wins check);
-   *   2. re-open the stage (drop stageEnd + inProcess markers) so the retry's mapperEnd can
-   *      trigger a fresh StageEnd -> CommitFiles that rebuilds the reducer file group with the
-   *      retry's complete data; and
-   *   3. drop the current reducer file group so a reducer that has not yet fetched does not read
-   *      the failed attempt's partial data.
+   * If the aborted attempt is the one recorded for the map and the stage has not ended yet, the
+   * map's attempt latch is reset so the retry's mapperEnd is accepted instead of being skipped by
+   * the first-wins check. The reducers only read batches of the recorded attempt, so the aborted
+   * attempt's pushed data is ignored.
    *
-   * Only the AM knows an attempt failed; this gives that knowledge to the client.
+   * Once the stage has ended (or is being committed) the files are closed on the workers and the
+   * reducer file group is published, so the stage is never re-opened here: re-opening it leaves
+   * reducers waiting on a stage end that can not complete.
    */
   override def abortMapperAttempt(shuffleId: Int, mapId: Int, failedAttemptId: Int): Unit = {
-    val attempts = shuffleMapperAttempts.get(shuffleId)
-    if (attempts == null) {
-      logWarning(s"[abortMapperAttempt] shuffle $shuffleId not registered, nothing to abort.")
-      return
-    }
-    val current = attempts(mapId)
-    if (current < 0) {
-      // No recorded attempt for this map yet; nothing to undo.
-      return
-    }
-    attempts.synchronized {
-      if (attempts(mapId) == current && attempts(mapId) == failedAttemptId) {
-        // Only reset if the recorded attempt is exactly the one that failed, so a newer
-        // (already-succeeded) attempt is never clobbered.
+    shuffleMapperAttempts.synchronized {
+      val attempts = shuffleMapperAttempts.get(shuffleId)
+      if (attempts == null) {
+        logWarning(s"[abortMapperAttempt] shuffle $shuffleId not registered, nothing to abort.")
+      } else if (attempts(mapId) != failedAttemptId) {
+        logInfo(s"[abortMapperAttempt] shuffle $shuffleId map $mapId attempt $failedAttemptId " +
+          s"is not the recorded attempt ${attempts(mapId)}, nothing to abort.")
+      } else if (isStageEndOrInProcess(shuffleId)) {
+        logWarning(s"[abortMapperAttempt] shuffle $shuffleId map $mapId attempt " +
+          s"$failedAttemptId aborted after stage end, keep the committed output.")
+      } else {
         attempts(mapId) = -1
-        logInfo(
-          s"[abortMapperAttempt] shuffle $shuffleId map $mapId attempt $failedAttemptId " +
-            s"failed, reset latch for retry.")
+        logInfo(s"[abortMapperAttempt] shuffle $shuffleId map $mapId attempt $failedAttemptId " +
+          s"aborted, reset latch for retry.")
       }
     }
-    // Re-open the stage so the retry's mapperEnd can re-commit.
-    stageEndShuffleSet.remove(shuffleId)
-    inProcessStageEndShuffleSet.remove(shuffleId)
-    // Drop the file group built from the failed attempt's partial data.
-    reducerFileGroupsMap.remove(shuffleId)
   }
 
   override def finishMapperAttempt(
@@ -350,14 +337,12 @@ class ReducePartitionCommitHandler(
         }
         // Mapper with this attemptId finished, also check all other mapper finished or not.
         (true, ClientUtils.areAllMapperAttemptsFinished(attempts))
-      } else if (attemptId > attempts(mapId)) {
+      } else if (conf.allowMapAttemptSupersede && attemptId > attempts(mapId) &&
+        !isStageEndOrInProcess(shuffleId)) {
         // A strictly-newer attemptId for the same mapId means MR retried this map after the
-        // earlier attempt failed. The earlier attempt's partial output may already have been
-        // committed and its data pushed to the workers, so we must not silently skip this
-        // mapperEnd (that would leave the failed attempt's partial data as authoritative and
-        // drop the retry's rows). Supersede: record the newer attempt as authoritative. The
-        // caller (LifecycleManager) is responsible for releasing the superseded attempt's
-        // committed partitions on the workers so the retry's data is served instead.
+        // earlier attempt was given up on. Before the stage ends both attempts' data is still
+        // on the workers, so record the newer attempt as authoritative and the reducers read
+        // its batches. After the stage ends the committed output must stay unchanged.
         logWarning(
           s"Mapper $mapId for shuffle $shuffleId was already recorded with attempt " +
             s"${attempts(mapId)}, superseding with newer attempt $attemptId (retry after failure).")

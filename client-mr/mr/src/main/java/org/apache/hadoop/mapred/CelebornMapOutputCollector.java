@@ -38,11 +38,13 @@ public class CelebornMapOutputCollector<K extends Object, V extends Object>
   private Task.TaskReporter reporter;
   private CelebornSortBasedPusher<K, V> celebornSortBasedPusher;
   private int numReducers;
+  private MapTask mapTask;
 
   @Override
   public void init(Context context) throws IOException {
     JobConf jobConf = context.getJobConf();
     reporter = context.getReporter();
+    mapTask = context.getMapTask();
     keyClass = (Class<K>) jobConf.getMapOutputKeyClass();
     valClass = (Class<V>) jobConf.getMapOutputValueClass();
     context.getMapTask().getTaskID().getId();
@@ -119,6 +121,16 @@ public class CelebornMapOutputCollector<K extends Object, V extends Object>
   public void close() throws IOException {
     logger.info("Mapper collector close");
     reporter.progress();
+    if (!isMapPhaseCompleted()) {
+      // MapTask also closes the collector from its finally block when the map fails; reporting
+      // mapper end there would let the failed attempt's partial output be committed.
+      logger.warn(
+          "Map task {} did not complete its map phase (phase {}), skip mapper end.",
+          mapTask.getTaskID(),
+          mapTask.getPhase());
+      celebornSortBasedPusher.abort();
+      return;
+    }
     celebornSortBasedPusher.close();
     celebornSortBasedPusher.checkException();
   }
@@ -126,8 +138,19 @@ public class CelebornMapOutputCollector<K extends Object, V extends Object>
   @Override
   public void flush() throws IOException {
     logger.info("Mapper collector flush");
+    if (!isMapPhaseCompleted()) {
+      return;
+    }
     celebornSortBasedPusher.flush();
     celebornSortBasedPusher.checkException();
     reporter.progress();
+  }
+
+  /**
+   * MapTask moves to the SORT phase only after the mapper has run to completion (this collector is
+   * only used when the job has reducers), right before flushing and closing the collector.
+   */
+  private boolean isMapPhaseCompleted() {
+    return mapTask == null || mapTask.getPhase() == TaskStatus.Phase.SORT;
   }
 }
