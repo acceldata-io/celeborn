@@ -28,6 +28,7 @@ import java.util.function.BiFunction;
 import scala.Tuple2;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public abstract class ShuffleClient {
   private static Logger logger = LoggerFactory.getLogger(ShuffleClient.class);
   private static volatile ShuffleClient _instance;
   private static volatile boolean initialized = false;
-  private static volatile Map<StorageInfo.Type, FileSystem> hadoopFs;
+  private static volatile Configuration hadoopConf;
   private static LongAdder totalReadCounter = new LongAdder();
   private static LongAdder localShuffleReadCounter = new LongAdder();
 
@@ -68,7 +69,7 @@ public abstract class ShuffleClient {
   public static void reset() {
     _instance = null;
     initialized = false;
-    hadoopFs = null;
+    hadoopConf = null;
   }
 
   protected ShuffleClient() {}
@@ -114,19 +115,32 @@ public abstract class ShuffleClient {
     return _instance;
   }
 
+  /**
+   * Returns the DFS file systems for the current user. The instances are looked up from Hadoop's
+   * FileSystem cache on every call rather than held statically, because hosts such as a reused Tez
+   * container close all cached file systems of the task UGI after each task.
+   */
   public static Map<StorageInfo.Type, FileSystem> getHadoopFs(CelebornConf conf) {
-    if (null == hadoopFs) {
+    if (null == hadoopConf) {
       synchronized (ShuffleClient.class) {
-        if (null == hadoopFs) {
+        if (null == hadoopConf) {
           try {
-            hadoopFs = CelebornHadoopUtils.getHadoopFS(conf);
+            Configuration newConf = CelebornHadoopUtils.newConfiguration(conf);
+            CelebornHadoopUtils.initKerberos(conf, newConf);
+            hadoopConf = newConf;
           } catch (Exception e) {
             logger.error("Celeborn initialize DFS failed.", e);
+            return null;
           }
         }
       }
     }
-    return hadoopFs;
+    try {
+      return CelebornHadoopUtils.getHadoopFS(conf, hadoopConf);
+    } catch (Exception e) {
+      logger.error("Celeborn initialize DFS failed.", e);
+      return null;
+    }
   }
 
   public static void incrementLocalReadCounter() {
