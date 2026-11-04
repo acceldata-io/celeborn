@@ -148,7 +148,7 @@ class CelebornScheduler extends ShuffleScheduler {
   }
 
   public synchronized MapHost getHost() throws InterruptedException {
-    while (pendingHosts.isEmpty() && !isAllInputFetched()) {
+    while (pendingHosts.isEmpty() && !isAllInputFetched() && !isShutdown.get()) {
       LOG.debug("PendingHosts={}", pendingHosts);
       waitAndNotifyProgress();
     }
@@ -176,9 +176,10 @@ class CelebornScheduler extends ShuffleScheduler {
     protected Void callInternal() throws InterruptedException {
       while (!isShutdown.get() && !isAllInputFetched()) {
         synchronized (CelebornScheduler.this) {
-          while (!allInputTaskAttemptDone()
-              || ((celebornRunningFetchers.size() >= numFetchers || pendingHosts.isEmpty())
-                  && !isAllInputFetched())) {
+          while (!isShutdown.get()
+              && (!allInputTaskAttemptDone()
+                  || ((celebornRunningFetchers.size() >= numFetchers || pendingHosts.isEmpty())
+                      && !isAllInputFetched()))) {
             try {
               waitAndNotifyProgress();
             } catch (InterruptedException e) {
