@@ -324,6 +324,21 @@ public class CelebornSortBasedPusher<K, V> extends OutputStream {
     serializedKV = null;
   }
 
+  /**
+   * Release buffered data without reporting mapper end. Used when the map attempt did not finish
+   * successfully: a failed attempt must not be reported as ended, otherwise its partial output can
+   * be committed as the map's authoritative output.
+   */
+  public void abort() {
+    logger.info(
+        "Abort sort based pusher without mapper end, shuffleId:{} mapId:{} attemptId:{}",
+        0,
+        mapId,
+        attempt);
+    partitionedKVs.clear();
+    serializedKV = null;
+  }
+
   static class SerializedKV {
     final int offset;
     final int kLen;
