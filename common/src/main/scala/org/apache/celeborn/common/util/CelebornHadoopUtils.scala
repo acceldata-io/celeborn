@@ -34,7 +34,7 @@ import org.apache.celeborn.common.protocol.StorageInfo
 
 object CelebornHadoopUtils extends Logging {
   private var logPrinted = new AtomicBoolean(false)
-  private[celeborn] def newConfiguration(conf: CelebornConf): Configuration = {
+  def newConfiguration(conf: CelebornConf): Configuration = {
     val hadoopConf = new Configuration()
     hadoopConf.set("fs.automatic.close", "false")
     if (conf.hdfsDir.nonEmpty) {
@@ -93,6 +93,18 @@ object CelebornHadoopUtils extends Logging {
   def getHadoopFS(conf: CelebornConf): java.util.Map[StorageInfo.Type, FileSystem] = {
     val hadoopConf = newConfiguration(conf)
     initKerberos(conf, hadoopConf)
+    getHadoopFS(conf, hadoopConf)
+  }
+
+  /**
+   * Resolves the file systems through Hadoop's FileSystem cache for the current user. Callers that
+   * run inside hosts which close cached file systems between tasks (e.g. Tez container reuse via
+   * FileSystem.closeAllForUGI) must call this on each use instead of holding the returned
+   * instances.
+   */
+  def getHadoopFS(
+      conf: CelebornConf,
+      hadoopConf: Configuration): java.util.Map[StorageInfo.Type, FileSystem] = {
     val hadoopFs = new java.util.HashMap[StorageInfo.Type, FileSystem]()
     if (conf.hasHDFSStorage) {
       val hdfsDir = new Path(conf.hdfsDir)
